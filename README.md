@@ -1,2 +1,3 @@
 # libinput.zig
-libinput reimplemented with zero C dependencies in Zig
+
+Pure-Zig reimplementation of libinput with zero C dependencies.
