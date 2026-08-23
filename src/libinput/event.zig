@@ -55,6 +55,23 @@ pub const DeviceEvent = struct {
     device_id: u32,
 };
 
+pub const TabletProximity = struct {
+    time_ms: u64,
+    in_prox: bool,
+};
+
+pub const TabletTip = struct {
+    time_ms: u64,
+    down: bool,
+};
+
+pub const TabletAxis = struct {
+    time_ms: u64,
+    x: f64,
+    y: f64,
+    pressure: f64,
+};
+
 pub const Event = union(enum) {
     pointer_motion: PointerMotion,
     pointer_button: PointerButton,
@@ -62,4 +79,7 @@ pub const Event = union(enum) {
     key: Key,
     device_added: DeviceEvent,
     device_removed: DeviceEvent,
+    tablet_proximity: TabletProximity,
+    tablet_tip: TabletTip,
+    tablet_axis: TabletAxis,
 };

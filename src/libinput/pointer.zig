@@ -68,6 +68,10 @@ pub const Processor = struct {
     pending_items: [MAX_PENDING]PendingButton = undefined,
     pending_len: usize = 0,
 
+    // Pending keyboard key events for this frame.
+    pending_keys: [MAX_PENDING]event.Key = undefined,
+    pending_keys_len: usize = 0,
+
     // Middle-button emulation state machine (port of evdev-middle-button.c).
     mid_state: MidState = .idle,
     // Bitmask of currently-pressed buttons, bit N = (button - BTN_LEFT). Mirrors device->middlebutton.button_mask.
@@ -101,8 +105,17 @@ pub const Processor = struct {
             },
             evdev.EV_KEY => {
                 const code = e.code;
-                // Full mouse button range 0x110..0x117 (BTN_LEFT..BTN_TASK).
-                if (code >= @as(u16, evdev.BTN_LEFT) and code <= @as(u16, evdev.BTN_TASK)) {
+                if (code < @as(u16, evdev.BTN_MISC)) {
+                    // Keyboard key: raw code passthrough, framed on SYN_REPORT.
+                    if (self.pending_keys_len < MAX_PENDING) {
+                        self.pending_keys[self.pending_keys_len] = .{
+                            .time_ms = 0, // set at flush from the frame timestamp
+                            .code = @as(u32, code),
+                            .state = if (e.value != 0) .pressed else .released,
+                        };
+                        self.pending_keys_len += 1;
+                    }
+                } else if (code >= @as(u16, evdev.BTN_LEFT) and code <= @as(u16, evdev.BTN_TASK)) {
                     const st: event.ButtonState = if (e.value != 0) .pressed else .released;
                     // Raw events stored verbatim. Middle-button emulation runs at flush time so the timeout is driven by the frame timestamp.
                     if (self.pending_len < MAX_PENDING) {
@@ -318,6 +331,16 @@ pub const Processor = struct {
     ) !void {
         defer self.clearFrame();
 
+        // Keyboard keys: raw code + state, stamped with the frame timestamp.
+        {
+            var ki: usize = 0;
+            while (ki < self.pending_keys_len) : (ki += 1) {
+                var k = self.pending_keys[ki];
+                k.time_ms = time_ms;
+                try out.append(gpa, .{ .key = k });
+            }
+        }
+
         // Middle-button emulation: the raw pending list is replaced by the machine's output.
         var resolved: [MAX_RESOLVED]PendingButton = undefined;
         const pending: []const PendingButton = if (self.cfg.middle_emulation)
@@ -477,6 +500,7 @@ pub const Processor = struct {
         self.wheel_hi = 0;
         self.hwheel_hi = 0;
         self.pending_len = 0;
+        self.pending_keys_len = 0;
     }
 };
 
@@ -682,6 +706,24 @@ test "seat_button_count is 1 on press and 0 on release (separate frames)" {
     const release_ev = out.items[before].pointer_button;
     try std.testing.expectEqual(event.ButtonState.released, release_ev.state);
     try std.testing.expectEqual(@as(u32, 0), release_ev.seat_button_count);
+}
+
+test "processor emits keyboard key events (below BTN_MISC)" {
+    var fil = filter.Filter.init(.mouse, 1000);
+    var cfg = Config{};
+    _ = &cfg;
+    var p = Processor.init(&fil, &cfg);
+    const KEY_A: u16 = 30;
+    p.feed(iev(evdev.EV_KEY, KEY_A, 1)); // press
+
+    var out = std.ArrayList(event.Event).empty;
+    defer out.deinit(std.testing.allocator);
+    try p.flush(1000, &out, std.testing.allocator);
+
+    try std.testing.expectEqual(@as(usize, 1), out.items.len);
+    try std.testing.expect(out.items[0] == .key);
+    try std.testing.expectEqual(@as(u32, KEY_A), out.items[0].key.code);
+    try std.testing.expectEqual(event.ButtonState.pressed, out.items[0].key.state);
 }
 
 test "button-scroll continuous axis has v120 == 0, wheel axis keeps v120 == 120" {

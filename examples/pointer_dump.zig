@@ -81,6 +81,7 @@ pub fn main(init: std.process.Init.Minimal) !void {
                     );
                     return;
                 },
+                else => {},
             }
         }
 

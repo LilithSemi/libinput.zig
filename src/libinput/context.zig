@@ -105,6 +105,27 @@ pub const Context = struct {
         return h;
     }
 
+    /// Adopt an already-open, non-blocking evdev fd (opened no-root by a seat
+    /// manager). The Device does NOT own the fd (owns_fd=false); the caller
+    /// closes it. Enqueues a device_added event. Same cleanup contract as
+    /// addDevice.
+    pub fn addDeviceFd(self: *Context, the_fd: posix.fd_t) !*DeviceHandle {
+        const id = self.next_id;
+        self.next_id += 1;
+        const dev = try device.Device.openFd(self.gpa, the_fd, id);
+        const h = self.newHandle(dev) catch |e| {
+            dev.deinit(self.gpa);
+            return e;
+        };
+        errdefer {
+            _ = self.handles.pop();
+            self.gpa.destroy(h);
+            dev.deinit(self.gpa);
+        }
+        try self.queue.append(self.gpa, .{ .device_added = .{ .device_id = id } });
+        return h;
+    }
+
     /// Test hook: create a memory-backed device from pre-supplied event data
     /// and capability flags. Enqueues a `device_added` event.
     pub fn addMemoryDevice(
@@ -265,6 +286,8 @@ test "addMemoryDevice: no double-free when queue.append OOM after newHandle" {
         .has_rel = true,
         .has_buttons = true,
         .has_wheel = true,
+        .has_keys = false,
+        .is_tablet = false,
         .id = .{ .bustype = 3, .vendor = 1, .product = 1, .version = 1 },
         .kind = .mouse,
         .name = undefined,
@@ -292,6 +315,8 @@ test "context delivers device_added then a motion event" {
         .has_rel = true,
         .has_buttons = true,
         .has_wheel = true,
+        .has_keys = false,
+        .is_tablet = false,
         .id = .{ .bustype = 3, .vendor = 1, .product = 1, .version = 1 },
         .kind = .mouse,
         .name = undefined,
@@ -310,6 +335,18 @@ test "context delivers device_added then a motion event" {
     try std.testing.expect(first == .device_added);
     const second = ctx.next().?;
     try std.testing.expectEqual(@as(f64, 7), second.pointer_motion.dx_unaccel);
+}
+
+test "addDeviceFd on a non-char fd fails cleanly and appends nothing" {
+    const linux = std.os.linux;
+    const efd: posix.fd_t = @intCast(linux.eventfd(0, linux.EFD.CLOEXEC | linux.EFD.NONBLOCK));
+    defer _ = linux.close(efd);
+
+    var ctx = Context.init(std.testing.allocator);
+    defer ctx.deinit();
+
+    try std.testing.expectError(error.NotACharDevice, ctx.addDeviceFd(efd));
+    try std.testing.expectEqual(@as(usize, 0), ctx.handles.items.len);
 }
 
 test {

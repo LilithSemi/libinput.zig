@@ -9,6 +9,7 @@ pub const source = @import("libinput/source.zig");
 pub const event = @import("libinput/event.zig");
 pub const filter = @import("libinput/filter.zig");
 pub const pointer = @import("libinput/pointer.zig");
+pub const tablet = @import("libinput/tablet.zig");
 pub const device = @import("libinput/device.zig");
 pub const context = @import("libinput/context.zig");
 
