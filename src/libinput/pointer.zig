@@ -86,7 +86,7 @@ pub const Processor = struct {
 
     // Per-button held-count, indexed by (button - BTN_LEFT). Size 8 covers BTN_LEFT..BTN_TASK (0x110..0x117).
     // Updated after left-handed swap so the consumer gets a consistent count per emitted code.
-    seat_btn_count: [8]u32 = [_]u32{0} ** 8,
+    seat_btn_count: [8]u32 = @splat(0),
 
     pub fn init(f: *filter.Filter, cfg: *const Config) Processor {
         return .{ .fil = f, .cfg = cfg };
@@ -488,7 +488,7 @@ pub const Processor = struct {
         self.scroll_state = .idle;
         self.scroll_accum_x = 0.0;
         self.scroll_accum_y = 0.0;
-        self.seat_btn_count = [_]u32{0} ** 8;
+        self.seat_btn_count = @splat(0);
         self.fil.reset();
     }
 

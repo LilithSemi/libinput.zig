@@ -147,7 +147,7 @@ pub const Filter = struct {
             .profile = .adaptive,
             .dpi = dpi,
             .speed = 0.0,
-            .trackers = [_]Tracker{.{}} ** MOTION_TRACKER_HISTORY_SIZE,
+            .trackers = @splat(.{}),
             .cur_tracker = 0,
             .last_velocity = 0.0,
             .threshold = DEFAULT_THRESHOLD,
@@ -192,7 +192,7 @@ pub const Filter = struct {
     /// Clear the motion history (SYN_DROPPED / device idle). Ports the effect of
     /// `trackers_reset`/`trackers_init`: history emptied, velocity forgotten.
     pub fn reset(self: *Filter) void {
-        self.trackers = [_]Tracker{.{}} ** MOTION_TRACKER_HISTORY_SIZE;
+        self.trackers = @splat(.{});
         self.cur_tracker = 0;
         self.last_velocity = 0.0;
     }

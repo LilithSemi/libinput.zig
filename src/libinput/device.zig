@@ -139,7 +139,7 @@ pub const Device = struct {
 
         // EVIOCGBIT(EV_REL): relative axis capability bitmask.
         // REL_MAX = 0x0f, nbits(REL_MAX+1) = nbits(16) = 2 bytes.
-        var rel_bits = [_]u8{0} ** ((evdev.REL_MAX + 1 + 7) / 8);
+        var rel_bits: [(evdev.REL_MAX + 1 + 7) / 8]u8 = @splat(0);
         switch (posix.errno(linux.ioctl(the_fd, evdev.EVIOCGBIT(evdev.EV_REL, rel_bits.len), @intFromPtr(&rel_bits)))) {
             .SUCCESS => {},
             else => return error.IoctlFailed,
@@ -150,7 +150,7 @@ pub const Device = struct {
 
         // EVIOCGBIT(EV_KEY): key/button capability bitmask.
         // KEY_MAX = 0x2ff = 767, nbits(768) = 96 bytes.
-        var key_bits = [_]u8{0} ** ((evdev.KEY_MAX + 1 + 7) / 8);
+        var key_bits: [(evdev.KEY_MAX + 1 + 7) / 8]u8 = @splat(0);
         switch (posix.errno(linux.ioctl(the_fd, evdev.EVIOCGBIT(evdev.EV_KEY, key_bits.len), @intFromPtr(&key_bits)))) {
             .SUCCESS => {},
             else => return error.IoctlFailed,
@@ -170,7 +170,7 @@ pub const Device = struct {
 
         // EVIOCGBIT(EV_ABS): absolute axis capability bitmask.
         // ABS_MAX = 0x3f = 63, nbits(64) = 8 bytes.
-        var abs_bits = [_]u8{0} ** ((evdev.ABS_MAX + 1 + 7) / 8);
+        var abs_bits: [(evdev.ABS_MAX + 1 + 7) / 8]u8 = @splat(0);
         switch (posix.errno(linux.ioctl(the_fd, evdev.EVIOCGBIT(evdev.EV_ABS, abs_bits.len), @intFromPtr(&abs_bits)))) {
             .SUCCESS => {},
             else => return error.IoctlFailed,
@@ -179,7 +179,7 @@ pub const Device = struct {
         // EVIOCGPROP: device property bitmask, the only thing that tells a
         // touchscreen apart from a touchpad.
         // INPUT_PROP_MAX = 0x1f = 31, nbits(32) = 4 bytes.
-        var prop_bits = [_]u8{0} ** ((evdev.INPUT_PROP_MAX + 1 + 7) / 8);
+        var prop_bits: [(evdev.INPUT_PROP_MAX + 1 + 7) / 8]u8 = @splat(0);
         switch (posix.errno(linux.ioctl(the_fd, evdev.EVIOCGPROP(prop_bits.len), @intFromPtr(&prop_bits)))) {
             .SUCCESS => {},
             else => return error.IoctlFailed,
@@ -218,7 +218,7 @@ pub const Device = struct {
 
     /// Open a real evdev device node. Probes capabilities via ioctls.
     pub fn open(gpa: std.mem.Allocator, path: []const u8, id: u32) Error!*Device {
-        const path_z = gpa.dupeZ(u8, path) catch return error.OpenFailed;
+        const path_z = gpa.dupeSentinel(u8, path, 0) catch return error.OpenFailed;
         defer gpa.free(path_z);
 
         const open_rc = linux.openat(
@@ -462,9 +462,9 @@ test "tablet device emits tablet_proximity on BTN_TOOL_PEN=1" {
 /// Fixed-size stand-ins for the three bitmasks `probe` reads from the kernel, so
 /// classification can be exercised with no hardware and no ioctls.
 const FakeBits = struct {
-    abs: [(evdev.ABS_MAX + 1 + 7) / 8]u8 = [_]u8{0} ** ((evdev.ABS_MAX + 1 + 7) / 8),
-    key: [(evdev.KEY_MAX + 1 + 7) / 8]u8 = [_]u8{0} ** ((evdev.KEY_MAX + 1 + 7) / 8),
-    prop: [(evdev.INPUT_PROP_MAX + 1 + 7) / 8]u8 = [_]u8{0} ** ((evdev.INPUT_PROP_MAX + 1 + 7) / 8),
+    abs: [(evdev.ABS_MAX + 1 + 7) / 8]u8 = @splat(0),
+    key: [(evdev.KEY_MAX + 1 + 7) / 8]u8 = @splat(0),
+    prop: [(evdev.INPUT_PROP_MAX + 1 + 7) / 8]u8 = @splat(0),
 
     fn set(mask: []u8, bit: usize) void {
         mask[bit / 8] |= @as(u8, 1) << @intCast(bit % 8);

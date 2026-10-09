@@ -63,7 +63,7 @@ test "uinput virtual mouse roundtrips a motion event" {
     // Describe the virtual device and create it.
     var setup = UinputSetup{
         .id = .{ .bustype = 3, .vendor = 0x1234, .product = 0x5678, .version = 1 },
-        .name = [_]u8{0} ** 80,
+        .name = @splat(0),
         .ff_effects_max = 0,
     };
     @memcpy(setup.name[0..DEVICE_NAME.len], DEVICE_NAME);
@@ -73,7 +73,7 @@ test "uinput virtual mouse roundtrips a motion event" {
 
     // Scan /dev/input for the created eventN node, retrying with 10ms gaps so
     // udev has a chance to create the node on devtmpfs.
-    var ep_buf = [_]u8{0} ** 64;
+    var ep_buf: [64]u8 = @splat(0);
     var ep_len: usize = 0;
 
     find: for (0..20) |_| {
@@ -101,7 +101,7 @@ test "uinput virtual mouse roundtrips a motion event" {
                         const prefix = "/dev/input/";
                         const total = prefix.len + ename.len;
                         if (total < ep_buf.len) {
-                            var p_buf = [_]u8{0} ** 64;
+                            var p_buf: [64]u8 = @splat(0);
                             @memcpy(p_buf[0..prefix.len], prefix);
                             @memcpy(p_buf[prefix.len..][0..ename.len], ename);
                             const path_z: [*:0]const u8 = @ptrCast(&p_buf);

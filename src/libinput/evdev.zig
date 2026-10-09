@@ -11,7 +11,7 @@ test "InputEvent has kernel ABI layout" {
 }
 
 test "testBit reads a little-endian byte bitmask" {
-    var mask = [_]u8{0} ** 4;
+    var mask: [4]u8 = @splat(0);
     mask[0] = 0b0000_0100; // bit 2 set
     mask[1] = 0b0000_0001; // bit 8 set
     try std.testing.expect(testBit(&mask, 2));
